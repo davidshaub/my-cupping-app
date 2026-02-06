@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Cupping Sheet</title>
+    <!-- Standalone Dependencies -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f5f5f4; color: #1c1917; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @media print { 
+            .print-hidden { display: none !important; }
+            body { background-color: white !important; padding: 0 !important; margin: 0 !important; }
+            
+            @page { 
+                size: landscape; 
+                margin: 1.5cm; 
+            }
+
+            .report-card { 
+                border: 1px solid #eee !important;
+                background-color: white !important; 
+                padding: 1.5rem !important; 
+                margin: 0 0 1.5cm 0 !important;
+                width: 100% !important;
+                box-shadow: none !important;
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: flex-start !important;
+                box-sizing: border-box !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+            
+            h2 { font-size: 1.8rem !important; }
+            .spider-container { width: 35% !important; padding-left: 4rem !important; border-left: 1px solid #f0f0f0 !important; }
+            .notes-container { width: 65% !important; padding-right: 4rem !important; }
+            
+            /* Logic to prevent extra blank pages */
+            .report-card:last-child { margin-bottom: 0 !important; }
+        }
+        
+        .btn-stone-dark { background-color: #1c1917 !important; color: #ffffff !important; border-radius: 0.75rem; transition: all 0.2s; }
+        .btn-stone-dark:active { transform: scale(0.96); opacity: 0.9; }
+        
+        .btn-stone-light { background-color: #e7e5e4 !important; color: #44403c !important; border: 1px solid #d6d3d1; border-radius: 0.75rem; transition: all 0.2s; }
+        .btn-stone-light:active { transform: scale(0.92); background-color: #d6d3d1; }
+
+        .tag-emerald { background-color: #ECFDF5; color: #047857; border: 1px solid #D1FAE5; }
+        .tag-rose { background-color: #FFF1F2; color: #BE123C; border: 1px solid #FFE4E6; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- CONSTANTS ---
+        const CATEGORIES = [
+            { id: 'fragrance', label: 'Fragrance' },
+            { id: 'aroma', label: 'Aroma' },
+            { id: 'cleanCup', label: 'Clean Cup' },
+            { id: 'sweetness', label: 'Sweetness' },
+            { id: 'acidity', label: 'Acidity' },
+            { id: 'body', label: 'Body' },
+            { id: 'flavor', label: 'Flavor' },
+            { id: 'aftertaste', label: 'Aftertaste' },
+            { id: 'balance', label: 'Balance' },
+            { id: 'consistency', label: 'Consistency' },
+            { id: 'overall', label: 'Overall' },
+        ];
+
+        const RADAR_LABELS = ["Frag/Aroma", "Clean Cup", "Sweetness", "Acidity", "Body", "Flavor", "Aftertaste", "Balance", "Consistency", "Overall"];
+        const INITIAL_SCORE = 8.5;
+        const INCREMENT = 0.25;
+        const GRAPH_FLOOR = 7.0;
+
+        const POSITIVE_LEXICON = ["Citrus", "Orange", "Pulpy Citrus", "Red Fruit", "Brown Fruit (Raisin/Date)", "Tropical", "Berries", "Dark Berries", "Strawberry", "Blueberry", "Lychee", "Cooked Fruit", "Melon", "Stone Fruit", "Orchard Fruit (Apple, Pear)", "Grape", "Plum", "Cherry", "Dried Banana", "Tomato", "Chocolate", "Black Tea", "Wafer Cookie", "Nuts", "Hazelnut", "Molasses", "Caramel", "Browning Sugars", "Sugarcane", "Panela", "Honey", "Graham Cracker", "Nougat", "Cola", "Sweet Hay", "Vanilla", "Pipe Tobacco", "Licorice", "Floral", "Bergamot", "Hops", "Herbal", "Baking Spices", "Cinnamon", "Mint", "Good Sweetness", "Balanced", "Juicy", "Lactic", "Tartaric", "Phosphoric", "Jammy"];
+        const DEFAULT_LEXICON = {
+            fragAroma: [...POSITIVE_LEXICON],
+            inCup: [...POSITIVE_LEXICON],
+            negative: ["Phenolic", "Quaker", "Potato", "Moldy", "Baggy", "Over-roasted", "Grassy", "Fermented", "Earthy", "Rubbery", "Astringent", "Bitter", "Salt"]
+        };
+
+        const apiKey = ""; 
+
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const paths = {
+                coffee: <path d="M17 8h1a4 4 0 1 1 0 8h-1M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8zM6 2v4M10 2v4M14 2v4"/>,
+                minus: <path d="M5 12h14"/>,
+                plus: <path d="M12 5v14M5 12h14"/>,
+                "chevron-right": <path d="m9 18 6-6-6-6"/>,
+                "chevron-left": <path d="m15 18-6-6 6-6"/>,
+                "settings-2": <path d="M20 7h-9M14 17H5M11 13H3M15 5v4M9 11v4M17 15v4M21 11h-4"/>,
+                "edit-2": <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>,
+                "clipboard-list": <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M12 2v4M9 2h6M8 11h.01M8 16h.01M12 11h4M12 16h4"/>,
+                tag: <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2zM7 7h.01"/>,
+                "edit-3": <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>,
+                search: <React.Fragment><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></React.Fragment>,
+                "loader-2": <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>,
+                x: <path d="M18 6 6 18M6 6l12 12"/>,
+                download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>,
+                printer: <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/>
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {paths[name]}
+                </svg>
+            );
+        };
+
+        const getSmartMatch = async (userInput, officialOptions) => {
+            if (!userInput || userInput.length < 3) return null;
+            const sys = `Expert coffee taster. Map input to: ${JSON.stringify(officialOptions)}. Return ONLY match or "None".`;
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: userInput }] }], systemInstruction: { parts: [{ text: sys }] } })
+                });
+                const data = await res.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            } catch { return "None"; }
+        };
+
+        const App = () => {
+            const [appState, setAppState] = useState('setup'); 
+            const [metadataOrigin, setMetadataOrigin] = useState('setup');
+            const [numSamples, setNumSamples] = useState(1);
+            const [activeSampleIndex, setActiveSampleIndex] = useState(0);
+            const [samples, setSamples] = useState([]);
+            const [lexicon, setLexicon] = useState(DEFAULT_LEXICON);
+            const [sessionStartTime, setSessionStartTime] = useState(null);
+
+            const initializeSamples = (count) => {
+                return Array.from({ length: count }, (_, i) => ({
+                    id: i + 1,
+                    ositoId: '',
+                    lotName: '',
+                    processing: 'Select One',
+                    processingOther: '',
+                    scores: {
+                        fragrance: INITIAL_SCORE, aroma: null, cleanCup: INITIAL_SCORE, 
+                        sweetness: INITIAL_SCORE, acidity: INITIAL_SCORE, body: INITIAL_SCORE, 
+                        flavor: INITIAL_SCORE, aftertaste: INITIAL_SCORE, balance: INITIAL_SCORE, 
+                        consistency: INITIAL_SCORE, overall: INITIAL_SCORE, defects: 0, correction: 0
+                    },
+                    notes: { fragAromaTags: [], inCupTags: [], negativeTags: [], otherText: '' }
+                }));
+            };
+
+            const startSession = () => {
+                if (!sessionStartTime) setSessionStartTime(new Date().toLocaleString());
+                setSamples(initializeSamples(numSamples));
+                setAppState('cupping');
+            };
+
+            const goToMetadata = (origin) => {
+                if (!sessionStartTime) setSessionStartTime(new Date().toLocaleString());
+                if (samples.length === 0) setSamples(initializeSamples(numSamples));
+                setMetadataOrigin(origin);
+                setAppState('metadata');
+            };
+
+            const updateScore = (sampleIdx, cat, delta) => {
+                setSamples(prev => {
+                    const n = [...prev];
+                    const cur = n[sampleIdx].scores[cat] ?? (cat === 'aroma' ? 8.5 : 0);
+                    let next = Math.round((cur + delta) * 4) / 4;
+                    if (next < 0 && cat !== 'correction') next = 0;
+                    if (next > 10 && !['defects', 'correction'].includes(cat)) next = 10;
+                    n[sampleIdx].scores[cat] = next;
+                    return n;
+                });
+            };
+
+            const updateMetadata = (sampleIdx, field, value) => {
+                setSamples(prev => {
+                    const n = [...prev];
+                    n[sampleIdx][field] = value;
+                    return n;
+                });
+            };
+
+            const toggleTag = (idx, section, tag) => {
+                setSamples(prev => {
+                    const n = [...prev];
+                    const field = `${section}Tags`;
+                    const current = n[idx].notes[field];
+                    n[idx].notes[field] = current.includes(tag) ? current.filter(t => t !== tag) : [...current, tag];
+                    return n;
+                });
+            };
+
+            const cycleTagModifier = (idx, section, tagString) => {
+                setSamples(prev => {
+                    const n = [...prev];
+                    const field = `${section}Tags`;
+                    const tags = [...n[idx].notes[field]];
+                    const tagIdx = tags.indexOf(tagString);
+                    if (tagIdx === -1) return prev;
+                    let baseTag = tagString.replace("Slight ", "").replace("Intense ", "");
+                    let newTag = "";
+                    if (tagString.startsWith("Slight ")) {
+                        newTag = "Intense " + baseTag;
+                    } else if (tagString.startsWith("Intense ")) {
+                        newTag = baseTag;
+                    } else {
+                        newTag = "Slight " + baseTag;
+                    }
+                    tags[tagIdx] = newTag;
+                    n[idx].notes[field] = tags;
+                    return n;
+                });
+            };
+
+            const getFragAromaAvg = (s) => {
+                const aroma = s.aroma !== null ? s.aroma : s.fragrance;
+                return (s.fragrance + aroma) / 2;
+            };
+
+            const calculateTotal = (sample) => {
+                const s = sample.scores;
+                const fragAroma = getFragAromaAvg(s);
+                const others = [s.cleanCup, s.sweetness, s.acidity, s.body, s.flavor, s.aftertaste, s.balance, s.consistency, s.overall].reduce((a, b) => a + b, 0);
+                const raw = fragAroma + others - s.defects + s.correction;
+                return (Math.ceil(raw * 4) / 4).toFixed(2);
+            };
+
+            const downloadCSV = () => {
+                const headers = [
+                    'Sample #', 'Osito ID', 'Lot Name', 'Processing', 
+                    'Fragrance', 'Aroma', 'Average', 'Clean Cup', 'Sweetness', 
+                    'Acidity', 'Body', 'Flavor', 'Aftertaste', 'Balance', 
+                    'Consistency', 'Overall', 'Defects', 'Cup Correction', 
+                    'Score', 'Frag/Aroma Notes', 'In the Cup Notes', 
+                    'Negative Notes', 'Other Notes', 'Session Start Time'
+                ];
+                const rows = samples.map(s => {
+                    const proc = s.processing === 'Other' ? `Other - ${s.processingOther}` : (s.processing === 'Select One' ? 'N/A' : s.processing);
+                    return [
+                        s.id, `"${s.ositoId}"`, `"${s.lotName}"`, `"${proc}"`,
+                        s.scores.fragrance.toFixed(2), (s.scores.aroma || s.scores.fragrance).toFixed(2),
+                        getFragAromaAvg(s.scores).toFixed(2), s.scores.cleanCup.toFixed(2),
+                        s.scores.sweetness.toFixed(2), s.scores.acidity.toFixed(2),
+                        s.scores.body.toFixed(2), s.scores.flavor.toFixed(2),
+                        s.scores.aftertaste.toFixed(2), s.scores.balance.toFixed(2),
+                        s.scores.consistency.toFixed(2), s.scores.overall.toFixed(2),
+                        s.scores.defects.toFixed(2), s.scores.correction.toFixed(2),
+                        calculateTotal(s),
+                        `"${s.notes.fragAromaTags.join('; ')}"`, `"${s.notes.inCupTags.join('; ')}"`,
+                        `"${s.notes.negativeTags.join('; ')}"`, `"${s.notes.otherText.replace(/"/g, '""')}"`,
+                        `"${sessionStartTime}"`
+                    ].join(',');
+                });
+                const csvContent = [headers.join(','), ...rows].join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `Osito_Cupping_Session.csv`; a.click();
+            };
+
+            if (appState === 'setup') {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-6 bg-stone-100">
+                        <div className="max-w-md w-full bg-white rounded-[2rem] shadow-2xl p-10 text-center border border-stone-200">
+                            <div className="inline-flex p-5 rounded-3xl bg-stone-900 text-white mb-8 shadow-xl">
+                                <Icon name="coffee" size={32} />
+                            </div>
+                            <h1 className="text-3xl font-black text-stone-900 mb-2 tracking-tight">Cupping Lab</h1>
+                            <p className="text-stone-400 font-medium mb-10">Select sample count to begin session</p>
+                            <div className="flex items-center justify-between bg-stone-100 rounded-2xl p-3 mb-10 border border-stone-200 shadow-inner">
+                                <button onClick={() => setNumSamples(Math.max(1, numSamples - 1))} className="w-14 h-14 bg-white shadow-sm flex items-center justify-center btn-stone-light"><Icon name="minus" size={20} /></button>
+                                <span className="text-5xl font-black text-stone-900 tabular-nums">{numSamples}</span>
+                                <button onClick={() => setNumSamples(numSamples + 1)} className="w-14 h-14 bg-white shadow-sm flex items-center justify-center btn-stone-light"><Icon name="plus" size={20} /></button>
+                            </div>
+                            <div className="space-y-4">
+                                <button onClick={startSession} className="w-full py-5 btn-stone-dark font-black text-lg flex items-center justify-center gap-3 shadow-2xl">Start Session <Icon name="chevron-right" /></button>
+                                <button onClick={() => goToMetadata('setup')} className="w-full py-4 bg-white text-stone-600 border-2 border-stone-100 rounded-2xl font-bold text-sm hover:bg-stone-50 transition-colors flex items-center justify-center gap-2"><Icon name="settings-2" size={16} /> Configure Lot Details</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (appState === 'metadata') {
+                return (
+                    <div className="min-h-screen bg-stone-100 p-6 md:p-12">
+                        <div className="max-w-4xl mx-auto space-y-8 pb-32">
+                            <div className="flex items-center justify-between">
+                                <h1 className="text-3xl font-black text-stone-900 tracking-tight">Lot Information</h1>
+                                <button onClick={() => setAppState(metadataOrigin === 'report' ? 'report' : 'setup')} className="text-stone-400 font-bold hover:text-stone-900 transition-colors">Back</button>
+                            </div>
+                            <div className="space-y-4">
+                                {samples.map((s, idx) => (
+                                    <div key={idx} className="bg-white p-6 rounded-3xl border border-stone-200 shadow-sm space-y-4">
+                                        <div className="flex items-center gap-3 border-b border-stone-50 pb-3"><span className="w-8 h-8 rounded-full bg-stone-900 text-white flex items-center justify-center font-black text-xs">#{s.id}</span><h3 className="font-black text-stone-800 uppercase tracking-widest text-xs">Lot Data</h3></div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div className="space-y-1"><label className="text-[10px] font-black text-stone-400 uppercase ml-1">Osito ID</label><input value={s.ositoId} onChange={(e) => updateMetadata(idx, 'ositoId', e.target.value)} placeholder="OS-ID..." className="w-full bg-stone-50 p-3 rounded-xl border border-transparent focus:bg-white focus:border-stone-200 outline-none font-bold text-stone-800 text-sm" /></div>
+                                            <div className="space-y-1"><label className="text-[10px] font-black text-stone-400 uppercase ml-1">Lot Name</label><input value={s.lotName} onChange={(e) => updateMetadata(idx, 'lotName', e.target.value)} placeholder="Lot Name..." className="w-full bg-stone-50 p-3 rounded-xl border border-transparent focus:bg-white focus:border-stone-200 outline-none font-bold text-stone-800 text-sm" /></div>
+                                            <div className="space-y-1"><label className="text-[10px] font-black text-stone-400 uppercase ml-1">Processing</label><select value={s.processing} onChange={(e) => updateMetadata(idx, 'processing', e.target.value)} className="w-full bg-stone-50 p-3 rounded-xl border border-transparent focus:bg-white focus:border-stone-200 outline-none font-bold text-stone-800 text-sm"><option>Select One</option><option>Washed</option><option>Natural</option><option>Honey</option><option>Other</option></select></div>
+                                        </div>
+                                        {s.processing === 'Other' && (<div className="space-y-1 animate-in slide-in-from-top-2"><label className="text-[10px] font-black text-stone-400 uppercase ml-1">Processing Details</label><input value={s.processingOther} onChange={(e) => updateMetadata(idx, 'processingOther', e.target.value)} placeholder="Add details..." className="w-full bg-stone-50 p-3 rounded-xl border border-transparent focus:bg-white focus:border-stone-200 outline-none font-bold text-stone-800 text-sm" /></div>)}
+                                    </div>
+                                ))}
+                            </div>
+                            <button onClick={() => setAppState(metadataOrigin === 'report' ? 'report' : 'cupping')} className="w-full py-5 btn-stone-dark font-black text-lg shadow-2xl fixed bottom-6 left-1/2 -translate-x-1/2 max-w-lg uppercase tracking-wider">{metadataOrigin === 'report' ? 'Save & Return' : 'Save & Start Session'}</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (appState === 'report') {
+                return (
+                    <div className="min-h-screen bg-stone-100 p-4 md:p-8">
+                        <div className="max-w-[1500px] mx-auto space-y-6 pb-20">
+                            <header className="flex items-center justify-between print-hidden">
+                                <button onClick={() => setAppState('cupping')} className="flex items-center gap-2 bg-white px-6 py-2.5 rounded-xl font-bold shadow-sm border border-stone-200 text-stone-600 hover:bg-stone-50"><Icon name="chevron-left" size={18}/> Back</button>
+                                <div className="flex gap-3">
+                                    <button onClick={() => goToMetadata('report')} className="flex items-center gap-2 bg-white px-5 py-2.5 rounded-xl font-bold text-stone-600 border border-stone-200 hover:bg-stone-50"><Icon name="edit-2" size={18}/> Edit Lot Details</button>
+                                    <button onClick={downloadCSV} className="flex items-center gap-2 bg-stone-200 px-5 py-2.5 rounded-xl font-bold text-stone-800 hover:bg-stone-300"><Icon name="download" size={18}/> CSV</button>
+                                    <button onClick={() => window.print()} className="flex items-center gap-2 px-6 py-2.5 btn-stone-dark font-bold shadow-xl"><Icon name="printer" size={18}/> PDF</button>
+                                </div>
+                            </header>
+
+                            <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-sm border border-stone-200 print:shadow-none print:border-none print:p-0 print:bg-transparent">
+                                <div className="flex justify-between items-baseline border-b-2 border-stone-50 pb-6 mb-10 print:border-stone-200">
+                                    <h1 className="text-2xl font-black text-stone-900 uppercase tracking-tight">Cupping Session Summary</h1>
+                                    <div className="text-right">
+                                        <p className="text-[10px] font-black text-stone-300 uppercase leading-none mb-1">Session Started</p>
+                                        <p className="text-xs font-bold text-stone-400">{sessionStartTime}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-0">
+                                    {samples.map((s) => (
+                                        <div key={s.id} className="report-card bg-white rounded-[2.5rem] p-10 mb-12 shadow-sm border border-stone-200 print:mb-0 print:border-none print:border-b print:border-stone-100 print:rounded-none flex flex-row items-stretch">
+                                            <div className="notes-container flex-1 min-w-0 pr-24 space-y-10 border-r border-stone-100 print:pr-12">
+                                                <div className="flex items-center justify-between border-b-2 border-stone-50 pb-6">
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-2 mb-2"><span className="text-[12px] font-black text-stone-300 uppercase tracking-widest leading-none block">Sample {s.id}</span>{s.ositoId && <span className="text-[10px] font-black bg-stone-900 text-white px-2 py-0.5 rounded uppercase tracking-tighter">{s.ositoId}</span>}</div>
+                                                        <h2 className="text-4xl font-black text-stone-900 tracking-tight leading-tight truncate overflow-visible">{s.lotName || `Lot #${s.id}`}</h2>
+                                                        <p className="text-[12px] font-bold text-stone-500 uppercase tracking-widest mt-2">{s.processing !== 'Select One' ? s.processing === 'Other' ? s.processingOther : s.processing : 'Processing: N/A'}</p>
+                                                    </div>
+                                                    <div className="text-right px-8 py-4 bg-stone-900 text-white rounded-2xl shadow-lg shrink-0">
+                                                        <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Final Score</p>
+                                                        <p className="text-5xl font-black tabular-nums leading-none">{calculateTotal(s)}</p>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-2 gap-x-20 gap-y-10 print:gap-x-12 print:gap-y-6">
+                                                    <ReportTags label="Fragrance / Aroma" tags={s.notes.fragAromaTags} color="emerald" alwaysShow={true} />
+                                                    <ReportTags label="In Cup / Flavor" tags={s.notes.inCupTags} color="emerald" alwaysShow={true} />
+                                                    <ReportTags label="Negative Factors" tags={s.notes.negativeTags} color="rose" alwaysShow={true} />
+                                                    
+                                                    <div className="space-y-2 mr-20 print:mr-10">
+                                                        <p className="text-[10px] font-black text-stone-300 uppercase tracking-widest leading-none">Observations</p>
+                                                        <div className={`text-[13px] italic text-stone-600 leading-relaxed bg-stone-50 p-4 rounded-2xl border border-stone-100 whitespace-pre-wrap shadow-inner min-h-[80px] print:bg-white print:p-2 print:border-stone-50`}>
+                                                            {s.notes.otherText || "No additional notes recorded."}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="spider-container shrink-0 flex items-center justify-center pl-16 bg-white print:pl-12 print:bg-transparent">
+                                                <SpiderGraph scores={s.scores} size={280} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            const currentSample = samples[activeSampleIndex];
+
+            return (
+                <div className="min-h-screen bg-stone-50 text-stone-800 pb-40">
+                    <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 shadow-sm">
+                        <header className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+                            <button onClick={() => setAppState('setup')} className="p-2 hover:bg-stone-100 rounded-full text-stone-400"><Icon name="chevron-left" size={24} /></button>
+                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-[60%] px-2">{samples.map((s, idx) => (<button key={idx} onClick={() => setActiveSampleIndex(idx)} className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeSampleIndex === idx ? 'bg-stone-800 text-white shadow-lg scale-105' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'}`}>{s.id}</button>))}</div>
+                            <button onClick={() => setAppState('report')} className="px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl btn-stone-dark">Report</button>
+                        </header>
+                        <div className="max-w-6xl mx-auto px-6 md:px-12 pb-4 flex justify-between items-center text-stone-900">
+                            <div><span className="text-stone-300 text-[9px] font-black uppercase tracking-[0.2em] leading-none block mb-0.5">Evaluating</span><h2 className="text-xl font-black tracking-tight">Sample #{currentSample.id}</h2></div>
+                            <div className="text-right"><span className="text-stone-300 text-[9px] font-black uppercase tracking-[0.2em] block">Live Score</span><span className="text-3xl font-black tabular-nums">{calculateTotal(currentSample)}</span></div>
+                        </div>
+                    </div>
+
+                    <main className="max-w-6xl mx-auto p-6 md:p-12 space-y-16">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
+                            <div className="space-y-4">
+                                <h3 className="text-[11px] font-black text-stone-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-3"><Icon name="clipboard-list" size={16}/> Scoring Grid</h3>
+                                {CATEGORIES.map(cat => (<ScoreControl key={cat.id} label={cat.label} value={currentSample.scores[cat.id]} onUpdate={(d) => updateScore(activeSampleIndex, cat.id, d)} />))}
+                                <div className="pt-8 space-y-4 border-t-2 border-stone-100 mt-8"><ScoreControl label="Defects" value={currentSample.scores.defects} onUpdate={(d) => updateScore(activeSampleIndex, 'defects', d)} colorClass="text-red-600" /><ScoreControl label="Cup Correction" value={currentSample.scores.correction} onUpdate={(d) => updateScore(activeSampleIndex, 'correction', d)} colorClass="text-blue-600" /></div>
+                            </div>
+                            <div className="space-y-10">
+                                <h3 className="text-[11px] font-black text-stone-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-3"><Icon name="tag" size={16}/> Sensory Lexicon</h3>
+                                <LexiconSearch label="Fragrance & Aroma" tags={currentSample.notes.fragAromaTags} options={lexicon.fragAroma} onToggle={(t) => toggleTag(activeSampleIndex, 'fragAroma', t)} onCycle={(t) => cycleTagModifier(activeSampleIndex, 'fragAroma', t)} color="emerald" />
+                                <LexiconSearch label="In the Cup" tags={currentSample.notes.inCupTags} options={lexicon.inCup} onToggle={(t) => toggleTag(activeSampleIndex, 'inCup', t)} onCycle={(t) => cycleTagModifier(activeSampleIndex, 'inCup', t)} color="emerald" />
+                                <LexiconSearch label="Negative Factors" tags={currentSample.notes.negativeTags} options={lexicon.negative} onToggle={(t) => toggleTag(activeSampleIndex, 'negative', t)} onCycle={(t) => cycleTagModifier(activeSampleIndex, 'negative', t)} color="rose" />
+                                <div className="space-y-3 pt-10 border-t-2 border-stone-100"><label className="text-[11px] font-black text-stone-400 uppercase tracking-widest flex items-center gap-2"><Icon name="edit-3" size={14}/> Other Observations</label><textarea value={currentSample.notes.otherText} onChange={(e) => setSamples(prev => { const n = [...prev]; n[activeSampleIndex].notes.otherText = e.target.value; return n; })} className="w-full bg-stone-100 border-2 border-transparent rounded-[1.5rem] p-6 text-base focus:bg-white focus:border-stone-300 min-h-[220px] resize-none transition-all outline-none shadow-inner font-medium text-stone-700 leading-relaxed" placeholder="Specific sensory details..." /></div>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const ScoreControl = ({ label, value, onUpdate, colorClass = "text-stone-900" }) => (
+            <div className="flex items-center justify-between bg-white p-4 rounded-[1.25rem] border border-stone-200 shadow-sm transition-shadow hover:shadow-md"><span className="text-lg font-bold text-stone-700">{label}</span><div className="flex items-center gap-6"><button onClick={() => onUpdate(-INCREMENT)} className="w-11 h-11 flex items-center justify-center btn-stone-light"><Icon name="minus" size={18} /></button><span className={`text-2xl font-black w-20 text-center tabular-nums ${colorClass}`}>{value === null ? '—' : value.toFixed(2)}</span><button onClick={() => onUpdate(INCREMENT)} className="w-11 h-11 flex items-center justify-center btn-stone-light"><Icon name="plus" size={18} /></button></div></div>
+        );
+
+        const LexiconSearch = ({ label, tags, options, onToggle, onCycle, color }) => {
+            const [searchTerm, setSearchTerm] = useState('');
+            const [isFocused, setIsFocused] = useState(false);
+            const [smartMatch, setSmartMatch] = useState(null);
+            const [isLoading, setIsLoading] = useState(false);
+            useEffect(() => {
+                const timer = setTimeout(async () => {
+                    if (searchTerm.length >= 3 && !options.some(o => o.toLowerCase().includes(searchTerm.toLowerCase()))) {
+                        setIsLoading(true);
+                        const match = await getSmartMatch(searchTerm, options.filter(o => !tags.some(t => t.endsWith(o))));
+                        if (match && match !== "None") setSmartMatch(match);
+                        setIsLoading(false);
+                    } else { setSmartMatch(null); }
+                }, 600);
+                return () => clearTimeout(timer);
+            }, [searchTerm, options, tags]);
+            const filtered = options.filter(o => o.toLowerCase().includes(searchTerm.toLowerCase()) && !tags.some(t => t === o || t === `Slight ${o}` || t === `Intense ${o}`));
+            const tagStyles = color === 'rose' ? 'tag-rose' : 'tag-emerald';
+            return (
+                <div className="space-y-3 relative">
+                    <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest leading-none ml-1 block">{label}</label>
+                    <div className="relative">
+                        <div className={`flex items-center gap-3 px-6 py-4 rounded-[1.25rem] border-2 transition-all shadow-inner ${isFocused ? 'bg-white border-stone-300' : 'bg-stone-50 border-transparent'}`}>
+                            <Icon name="search" size={20} className="text-stone-300" />
+                            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onFocus={() => setIsFocused(true)} onBlur={() => setTimeout(() => setIsFocused(false), 250)} placeholder="Search lexicon..." className="bg-transparent border-none p-0 text-base font-bold text-stone-800 focus:ring-0 w-full placeholder:text-stone-300 outline-none" />
+                            {isLoading && <div className="animate-spin text-stone-400 flex items-center justify-center"><Icon name="loader-2" size={18} /></div>}
+                        </div>
+                        {isFocused && searchTerm.length > 0 && (
+                            <div className="absolute z-50 left-0 right-0 top-full mt-2 bg-white border-2 border-stone-200 rounded-[1.5rem] shadow-2xl overflow-hidden max-h-60 overflow-y-auto p-1">
+                                {filtered.slice(0, 8).map(o => (<button key={o} onClick={() => { onToggle(o); setSearchTerm(''); }} className="w-full text-left px-5 py-3.5 text-sm font-bold text-stone-700 hover:bg-stone-50 rounded-xl transition-colors">{o}</button>))}
+                                {smartMatch && !filtered.includes(smartMatch) && (<button onClick={() => { onToggle(smartMatch); setSearchTerm(''); }} className="w-full text-left px-5 py-4 bg-stone-900 text-white flex justify-between items-center rounded-xl mt-1"><div className="flex flex-col"><span className="text-[9px] font-black opacity-60 uppercase mb-1">AI Smart Match</span><span className="font-black text-lg">{smartMatch}</span></div><Icon name="sparkles" size={20} className="text-amber-400" /></button>)}
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex flex-wrap gap-2.5 min-h-[40px]">{tags.map(t => (<span key={t} className={`${tagStyles} px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 shadow-sm border transition-all active:scale-95 cursor-pointer`} onClick={() => onCycle(t)}>{t}<button onClick={(e) => { e.stopPropagation(); onToggle(t); }} className="opacity-40 hover:opacity-100 transition-opacity"><Icon name="x" size={14} /></button></span>))}</div>
+                </div>
+            );
+        };
+
+        const ReportTags = ({ label, tags, color, alwaysShow = false }) => {
+            if (!tags.length && !alwaysShow) return null;
+            const s = color === 'rose' ? 'tag-rose' : 'tag-emerald';
+            return (
+                <div className="space-y-2">
+                    <p className="text-[11px] font-black text-stone-300 uppercase tracking-widest leading-none block">{label}</p>
+                    <div className="flex flex-wrap gap-2 min-h-[24px]">
+                        {tags.length > 0 ? (
+                            tags.map(t => <span key={t} className={`${s} px-3 py-1.5 rounded-lg text-[12px] font-black border tracking-tight`}>{t}</span>)
+                        ) : (
+                            <span className="text-[11px] text-stone-300 italic opacity-50">None recorded</span>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const SpiderGraph = ({ scores, size }) => {
+            const center = size / 2;
+            const radius = (size / 2) * 0.72;
+            const fragAroma = scores.aroma !== null ? (scores.fragrance + scores.aroma) / 2 : scores.fragrance;
+            const data = [fragAroma, scores.cleanCup, scores.sweetness, scores.acidity, scores.body, scores.flavor, scores.aftertaste, scores.balance, scores.consistency, scores.overall];
+            const pts = data.map((v, i) => {
+                const r = Math.max(0, (v - GRAPH_FLOOR) / (10 - GRAPH_FLOOR)) * radius;
+                const angle = i * (Math.PI * 2 / 10) - Math.PI / 2;
+                return { x: center + r * Math.cos(angle), y: center + r * Math.sin(angle) };
+            });
+            const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
+            return (
+                <svg width={size} height={size} className="overflow-visible font-sans">
+                    {[7.5, 8.5, 9.5].map(v => (<circle key={v} cx={center} cy={center} r={((v - GRAPH_FLOOR) / (10 - GRAPH_FLOOR)) * radius} fill="none" stroke="#e7e5e4" strokeWidth="1" strokeDasharray="4,4" />))}
+                    {RADAR_LABELS.map((label, i) => {
+                        const angle = i * (Math.PI * 2 / 10) - Math.PI / 2;
+                        const x2 = center + radius * Math.cos(angle);
+                        const y2 = center + radius * Math.sin(angle);
+                        const lp = { x: center + (radius + 24) * Math.cos(angle), y: center + (radius + 24) * Math.sin(angle) };
+                        return (<g key={i}><line x1={center} y1={center} x2={x2} y2={y2} stroke="#f5f5f4" strokeWidth="1.5" /><text x={lp.x} y={lp.y} textAnchor="middle" dominantBaseline="middle" className="text-[9px] font-black fill-stone-400 uppercase tracking-tighter">{label}</text></g>);
+                    })}
+                    <path d={path} fill="rgba(28, 25, 23, 0.12)" stroke="#1c1917" strokeWidth="3" strokeLinejoin="round" />
+                    {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="4.5" fill="#1c1917" stroke="#ffffff" strokeWidth="2.5" />)}
+                </svg>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
