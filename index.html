@@ -114,10 +114,10 @@
         const GRAPH_FLOOR = 7.0;
 
         const CATEGORISED_LEXICON = {
-            Fruity: ["Citrus", "Orange", "Pulpy Citrus", "Red Fruit", "Red Currant", "Berries", "Dark Berries", "Strawberry", "Blueberry", "Lychee", "Cooked Fruit", "Melon", "Stone Fruit", "Orchard Fruit (Apple, Pear)", "Grape", "Plum", "Cherry", "Dried Banana", "Tomato", "Tropical", "Jammy", "Juicy"],
+            Fruity: ["Citrus", "Orange", "Pulpy Citrus", "Red Fruit", "Red Currant", "Berries", "Dark Berries", "Strawberry", "Blueberry", "Lychee", "Cooked Fruit", "Melon", "Stone Fruit", "Orchard Fruit (Apple, Pear)", "Grape", "Plum", "Cherry", "Dried Banana", "Tomato", "Tropical", "Jammy", "Juicy", "Bubblegum"],
             Floral: ["Floral", "Bergamot", "Hops", "Herbal", "Black Tea"],
-            Sweet: ["Browning Sugars", "Vanilla", "Molasses", "Caramel", "Sugarcane", "Panela", "Honey", "Graham Cracker", "Nougat", "Cola", "Sweet Hay", "Vanilla", "Pipe Tobacco", "Licorice", "Good Sweetness"],
-            "Nutty/Cocoa": ["Chocolate", "Nuts", "Almond", "Hazelnut", "Wafer Cookie"],
+            Sweet: ["Browning Sugars", "Vanilla", "Molasses", "Caramel", "Sugarcane", "Panela", "Honey", "Graham Cracker", "Nougat", "Cola", "Sweet Hay", "Pipe Tobacco", "Licorice", "Good Sweetness", "Brown Fruit: Raisin/Date"],
+            "Nutty/Cocoa": ["Chocolate", "Nuts", "Almond", "Hazelnut", "Wafer Cookie", "Terracotta"],
             Spices: ["Baking Spices", "Cinnamon", "Mint"],
             Structure: ["Balanced", "Lactic", "Tartaric", "Phosphoric"]
         };
@@ -364,7 +364,6 @@
                 a.href = url; a.download = `Cupping_Export.csv`; a.click();
             };
 
-            // --- VIEWS ---
             if (appState === 'setup') {
                 return (
                     <div className="min-h-screen flex items-center justify-center p-4 md:p-6 bg-stone-100">
@@ -478,10 +477,12 @@
                                             <div className="notes-container flex-1 min-w-0 pr-0 lg:pr-24 space-y-6 md:space-y-10 border-r-0 lg:border-r lg:border-stone-100 print:pr-12">
                                                 <div className="flex flex-col sm:flex-row items-start justify-between border-b-2 border-stone-50 pb-4 md:pb-6 gap-4">
                                                     <div className="min-w-0">
-                                                        <span className="text-[10px] font-black text-stone-300 uppercase tracking-widest leading-none block mb-1">Sample {s.id}</span>
+                                                        <span className="text-[9px] font-black text-stone-300 uppercase tracking-widest leading-none block mb-1">Sample {s.id}</span>
                                                         <h2 className="text-2xl md:text-3xl font-black text-stone-900 tracking-tight leading-tight truncate overflow-visible lot-name-mobile">{s.lotName || `Lot #${s.id}`}</h2>
                                                         {s.ositoId && <span className="text-[9px] font-black bg-stone-900 text-white px-2 py-0.5 rounded tracking-tighter mt-1 inline-block uppercase">{s.ositoId}</span>}
-                                                        <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest mt-2">{s.processing !== 'Select One' ? (s.processing === 'Other' ? s.processingOther : s.processing) : 'Processing: N/A'}</p>
+                                                        <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest mt-2">
+                                                            {s.processing !== 'Select One' ? (s.processing === 'Other' ? s.processingOther : s.processing) : 'Processing: N/A'}
+                                                        </p>
                                                     </div>
                                                     <div className="text-right px-4 md:px-8 py-3 md:py-4 bg-stone-900 text-white rounded-2xl shadow-lg shrink-0 w-full sm:w-auto score-box-mobile"><p className="text-[8px] md:text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Final Score</p><p className="text-3xl md:text-4xl font-black tabular-nums leading-none final-score-mobile">{calculateTotal(s)}</p></div>
                                                 </div>
@@ -634,7 +635,7 @@
                     <p className="text-[9px] md:text-[10px] font-black text-stone-300 uppercase tracking-widest leading-none block">{label}</p>
                     <div className="flex flex-wrap gap-2 min-h-[20px]">
                         {tags.length > 0 ? (
-                            tags.map(t => <span key={t} className={`${getTagStyle(t)} px-3 py-1 rounded-lg text-[10px] font-black border tracking-tight`}>{t}</span>)
+                            tags.map(t => <span key={t} className={`${getTagStyle(t)} px-3 py-1.5 rounded-lg text-[10px] font-black border tracking-tight`}>{t}</span>)
                         ) : (
                             <span className="text-[10px] text-stone-300 italic opacity-50">None</span>
                         )}
